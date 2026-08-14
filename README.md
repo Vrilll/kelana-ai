@@ -2,26 +2,43 @@
 
 AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 
-## Session 1 — Trip Summary Generator (Console App)
-## Session 2 — Recommendation Engine (Layered Architecture)
+## Table of Contents
 
-Business logic now lives in `backend/services/trip_service.py`
-(category, season, daily budget, recommended places). `backend/main.py`
-handles only input/output (presentation layer).
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+- [How to Run](#how-to-run)
+- [Input](#input)
+- [Example Output](#example-output)
+- [Roadmap](#roadmap)
 
-### Project Structure
+## Overview
 
+### Session 1 — Trip Summary Generator (Console App)
+
+A simple console application that collects trip details from the user and prints a formatted summary.
+
+### Session 2 — Recommendation Engine (Layered Architecture)
+
+The app is now split into a layered architecture:
+
+- **`backend/services/trip_service.py`** — business logic layer. Contains the trip category, travel season, daily budget calculation, and recommended places logic.
+- **`backend/main.py`** — presentation layer. Handles user input/output only and calls into `trip_service` for all business logic.
+
+## Project Structure
+
+```
 kelana-ai/
 ├── README.md
 ├── backend/
-│ ├── main.py
-│ └── services/
-│ └── trip_service.py
+│   ├── main.py
+│   └── services/
+│       ├── __init__.py
+│       └── trip_service.py
 └── frontend/
-└── .gitkeep
+    └── .gitkeep
+```
 
-
-### How to Run
+## How to Run
 
 ```bash
 cd backend
@@ -30,27 +47,39 @@ python main.py
 
 > If `python` doesn't work on your system, try `python3 main.py`.
 
-You will be prompted for:
-- `destination` (string)
-- `days` (integer)
-- `budget` (float)
-- `currency` (string)
-- `travel_month` (string)
+## Input
 
-### Example Output
+You will be prompted for:
+
+| Field          | Type    | Description                  |
+|----------------|---------|-------------------------------|
+| `destination`  | string  | Destination name              |
+| `days`         | integer | Number of travel days         |
+| `budget`       | float   | Total trip budget             |
+| `currency`     | string  | Currency of the budget        |
+| `travel_month` | string  | Month of travel               |
+
+## Example Output
+
+```
 ==================================
 KelanaAI
-
+==================================
 Destination : Japan
-Days : 5
-Budget : 1500 USD
-Category : Standard
-Daily Budget : 300 USD/Day
+Days        : 5
+Budget      : 1500 USD
+Category    : Standard
+Daily Budget: 300 USD/Day
 Travel Month: December
-Season : Peak Season
+Season      : Peak Season
 
 Recommended Places
+- Tokyo Tower
+- Shibuya
+- Mount Fuji
+```
 
-Tokyo Tower
-Shibuya
-Mount Fuji
+## Roadmap
+
+- [ ] Frontend (Next.js) integration
+- [ ] Amazon Bedrock-powered recommendations
