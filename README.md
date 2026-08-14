@@ -22,7 +22,7 @@ kelana-ai/
 
 ```bash
 cd backend
-python3 main.py
+python main.py
 ```
 
 You will be prompted for:
