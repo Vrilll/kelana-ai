@@ -7,6 +7,7 @@ AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [How to Run](#how-to-run)
+- [API Endpoints](#api-endpoints)
 - [Input](#input)
 - [Example Output](#example-output)
 - [Roadmap](#roadmap)
@@ -24,62 +25,69 @@ The app is now split into a layered architecture:
 - **`backend/services/trip_service.py`** — business logic layer. Contains the trip category, travel season, daily budget calculation, and recommended places logic.
 - **`backend/main.py`** — presentation layer. Handles user input/output only and calls into `trip_service` for all business logic.
 
+### Session 3 — Teaching KelanaAI to Communicate (REST API)
+
+`backend/main.py` is now a **FastAPI** web service instead of a console app. It reuses the Session 2 business logic in `trip_service.py` and exposes it over HTTP.
+
 ## Project Structure
 
 ```
 kelana-ai/
 ├── README.md
 ├── backend/
-│   ├── main.py
-│   └── services/
-│       ├── __init__.py
-│       └── trip_service.py
+│ ├── main.py
+│ ├── requirements.txt
+│ └── services/
+│ ├── __init__.py
+│ └── trip_service.py
 └── frontend/
-    └── .gitkeep
+└── .gitkeep
 ```
 
 ## How to Run
 
 ```bash
 cd backend
-python main.py
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-> If `python` doesn't work on your system, try `python3 main.py`.
+The API will be available at `http://127.0.0.1:8000`.
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|-----------------------------------|--------------------------------------------------|
+| GET | `/` | Welcome message |
+| GET | `/health` | Health check |
+| POST | `/api/v1/trips` | Create a trip and get category + daily budget |
+| GET | `/api/v1/recommendations` | List of recommended places |
+| GET | `/api/v1/transportations` | List of available transportation options |
 
 ## Input
 
-You will be prompted for:
+`POST /api/v1/trips` expects a JSON body with:
 
-| Field          | Type    | Description                  |
+| Field | Type | Description |
 |----------------|---------|-------------------------------|
-| `destination`  | string  | Destination name              |
-| `days`         | integer | Number of travel days         |
-| `budget`       | float   | Total trip budget             |
-| `currency`     | string  | Currency of the budget        |
-| `travel_month` | string  | Month of travel               |
+| `destination` | string | Destination name |
+| `days` | integer | Number of travel days |
+| `budget` | float | Total trip budget |
 
 ## Example Output
 
-```
-==================================
-KelanaAI
-==================================
-Destination : Japan
-Days        : 5
-Budget      : 1500 USD
-Category    : Standard
-Daily Budget: 300 USD/Day
-Travel Month: December
-Season      : Peak Season
-
-Recommended Places
-- Tokyo Tower
-- Shibuya
-- Mount Fuji
+```json
+{
+  "destination": "Japan",
+  "days": 5,
+  "budget": 1500,
+  "daily_budget": 300,
+  "category": "Standard"
+}
 ```
 
 ## Roadmap
 
+- [x] REST API with FastAPI
 - [ ] Frontend (Next.js) integration
 - [ ] Amazon Bedrock-powered recommendations
