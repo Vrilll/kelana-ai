@@ -9,7 +9,7 @@ from database import Base
 
 
 class Trip(Base):
-      __tablename__ = "trips"
+    __tablename__ = "trips"
 
     id = Column(Integer, primary_key=True)
     destination = Column(String, nullable=False)
