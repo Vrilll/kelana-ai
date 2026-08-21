@@ -1,8 +1,9 @@
 """
 KelanaAI - FastAPI Web Service
-Session 4: Teaching KelanaAI to Remember (PostgreSQL Persistence)
+Session 5: Teaching KelanaAI to Think with AI (Amazon Bedrock Integration)
 
-Full CRUD: Create, Read (list + by id), Update, Delete.
+Full CRUD: Create, Read (list + by id), Update, Delete,
+plus an AI-generated itinerary endpoint backed by Amazon Bedrock.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 
 from database import SessionLocal, init_db
 from models.trip import Trip
+from services.bedrock_service import generate_itinerary
 from services.trip_service import calculate_daily_budget, get_trip_category
 
 app = FastAPI()
@@ -122,6 +124,35 @@ def delete_trip(trip_id: int):
     db.close()
 
     return {"message": f"Trip with id {trip_id} deleted"}
+
+
+# --- Generate: POST /api/v1/trips/{id}/generate (Session 5) ---
+@app.post("/api/v1/trips/{trip_id}/generate")
+def generate_trip_recommendation(trip_id: int):
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+
+    if trip is None:
+        db.close()
+        raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+
+    try:
+        itinerary = generate_itinerary(trip)
+    except Exception as error:
+        db.close()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to generate itinerary from Amazon Bedrock: {error}",
+        )
+
+    # persist the enriched AI itinerary into PostgreSQL
+    trip.ai_recommendation = itinerary
+
+    db.commit()
+    db.refresh(trip)
+    db.close()
+
+    return trip
 
 
 # --- Session 3 homework: static recommendation lists ---
