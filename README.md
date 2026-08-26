@@ -7,6 +7,7 @@ AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [How to Run](#how-to-run)
+- [Frontend](#frontend)
 - [API Endpoints](#api-endpoints)
 - [Input](#input)
 - [Example Output](#example-output)
@@ -48,6 +49,30 @@ KelanaAI moves from rule-based logic to **AI-native**: itineraries are generated
 - **`backend/models/trip.py`** — adds `ai_recommendation = Column(Text, nullable=True)` to store the generated itinerary.
 - **`backend/main.py`** — `POST /api/v1/trips/{id}/generate` calls Bedrock and saves the result into `ai_recommendation`.
 
+### Session 6 - Giving KelanaAI a Face (Next.js Frontend)
+
+KelanaAI finally has a homepage. `frontend/` is a **Next.js 15 (App Router)** app styled with
+**Tailwind CSS v4**, talking to the FastAPI backend over HTTP.
+
+- **`frontend/app/page.tsx`** - the homepage: hero, planner, destinations, how-it-works, footer.
+- **`frontend/components/Hero.tsx`** - full-bleed **hero image** with a dark gradient overlay so the
+  headline stays readable on any photo.
+- **`frontend/components/TripPlanner.tsx`** - the trip form. Creates a trip via
+  `POST /api/v1/trips`, then generates the itinerary via `POST /api/v1/trips/{id}/generate`.
+- **`frontend/components/DestinationGrid.tsx`** - responsive destination cards; picking one
+  prefills the planner.
+- **`frontend/components/Footer.tsx`** - copyright line plus product, developer and company links.
+- **`frontend/lib/api.ts`** - typed API client with friendly errors when the backend is not running.
+
+**Responsive layout:** the form is a 12-column grid from the `md` breakpoint up and collapses to a
+single stacked column on mobile; the destination grid runs 1 / 2 / 3 columns across
+mobile / tablet / desktop. Verified at 390px with no horizontal overflow.
+
+**Backend change:** `backend/main.py` now installs FastAPI's `CORSMiddleware`. Without it the
+browser blocks every request from the Next.js origin, so the frontend could not read any response.
+Allowed origins come from the optional `FRONTEND_ORIGINS` env var and default to
+`http://localhost:3000,http://127.0.0.1:3000`.
+
 ## Project Structure
 
 ```
@@ -66,7 +91,25 @@ kelana-ai/
 │ ├── trip_service.py
 │ └── bedrock_service.py
 └── frontend/
-└── .gitkeep
+  ├── package.json
+  ├── next.config.mjs
+  ├── postcss.config.mjs
+  ├── tsconfig.json
+  ├── .env.local.example
+  ├── app/
+  │ ├── globals.css
+  │ ├── layout.tsx
+  │ └── page.tsx
+  ├── components/
+  │ ├── DestinationGrid.tsx
+  │ ├── Footer.tsx
+  │ ├── Hero.tsx
+  │ ├── HowItWorks.tsx
+  │ ├── Navbar.tsx
+  │ ├── PlannerExperience.tsx
+  │ └── TripPlanner.tsx
+  └── lib/
+    └── api.ts
 ```
 
 ## How to Run
@@ -93,6 +136,22 @@ kelana-ai/
    ```
 
 The API will be available at `http://127.0.0.1:8000`, and interactive Swagger docs at `http://127.0.0.1:8000/docs`.
+
+## Frontend
+
+With the backend running, start the Next.js homepage in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The homepage is served at `http://localhost:3000`.
+
+If your API is not on `http://127.0.0.1:8000`, copy `.env.local.example` to `.env.local` and point
+`NEXT_PUBLIC_API_URL` at it. Remember to add that origin to `FRONTEND_ORIGINS` on the backend too,
+otherwise CORS will block the browser.
 
 ## API Endpoints
 
@@ -167,4 +226,4 @@ Evening:
 - [x] REST API with FastAPI
 - [x] PostgreSQL persistence with SQLAlchemy
 - [x] Amazon Bedrock-powered recommendations
-- [ ] Frontend (Next.js) integration
+- [x] Frontend (Next.js) integration

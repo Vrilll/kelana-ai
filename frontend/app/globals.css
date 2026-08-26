@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+
+  /* Brand palette — deep ocean teal + warm sunset accent */
+  --color-ink-50: #f5f7f8;
+  --color-ink-100: #e6ebee;
+  --color-ink-400: #7c8b96;
+  --color-ink-600: #47585f;
+  --color-ink-800: #1f2d33;
+  --color-ink-900: #121c21;
+
+  --color-brand-50: #eefbf7;
+  --color-brand-100: #d3f4ea;
+  --color-brand-300: #6fdcc0;
+  --color-brand-500: #14b891;
+  --color-brand-600: #0d9476;
+  --color-brand-700: #0b755f;
+
+  --color-sunset-100: #ffeede;
+  --color-sunset-400: #ff9f4a;
+  --color-sunset-500: #f9812a;
+  --color-sunset-700: #a8480a;
+
+  --radius-4xl: 2rem;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-800);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Preserve the line breaks of the AI itinerary without a monospace look */
+.itinerary {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-rise {
+    animation: none;
+  }
+}

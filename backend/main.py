@@ -1,12 +1,15 @@
 """
 KelanaAI - FastAPI Web Service
-Session 5: Teaching KelanaAI to Think with AI (Amazon Bedrock Integration)
+Session 6: Giving KelanaAI a Face (Next.js frontend)
 
 Full CRUD: Create, Read (list + by id), Update, Delete,
 plus an AI-generated itinerary endpoint backed by Amazon Bedrock.
 """
 
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from database import SessionLocal, init_db
@@ -15,6 +18,20 @@ from services.bedrock_service import generate_itinerary
 from services.trip_service import calculate_daily_budget, get_trip_category
 
 app = FastAPI()
+
+# The Next.js frontend runs on a different origin, so the browser needs CORS
+# headers before it will let the page read any response from this API.
+frontend_origins = os.getenv(
+    "FRONTEND_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in frontend_origins.split(",") if origin.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # create tables on startup if they don't exist yet
 init_db()
