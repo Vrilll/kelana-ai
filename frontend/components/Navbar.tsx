@@ -1,14 +1,20 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// Anchors are root-relative so they still work from /dashboard.
 const links = [
-  { href: "#plan", label: "Plan a trip" },
-  { href: "#destinations", label: "Destinations" },
-  { href: "#how-it-works", label: "How it works" },
+  { href: "/#plan", label: "Plan a trip" },
+  { href: "/#destinations", label: "Destinations" },
+  { href: "/dashboard", label: "Trip history" },
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
+
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-ink-900/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-ink-900/95 backdrop-blur-md">
       <nav
         className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:h-20 lg:px-8"
         aria-label="Main"
@@ -35,24 +41,40 @@ export default function Navbar() {
         </Link>
 
         <ul className="hidden items-center gap-8 md:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                className="text-sm font-medium text-ink-100/80 transition-colors hover:text-white"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
+          {links.map((link) => {
+            const isActive = link.href === pathname;
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`text-sm font-medium transition-colors hover:text-white ${
+                    isActive ? "text-brand-300" : "text-ink-100/80"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
 
-        <a
-          href="#plan"
-          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition-transform hover:-translate-y-0.5 hover:bg-brand-100 sm:px-5"
-        >
-          Start planning
-        </a>
+        {/* On mobile the nav links collapse away, so keep the dashboard
+            reachable next to the primary action. */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-white/25 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:hidden"
+          >
+            History
+          </Link>
+          <Link
+            href="/#plan"
+            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition-transform hover:-translate-y-0.5 hover:bg-brand-100 sm:px-5"
+          >
+            Start planning
+          </Link>
+        </div>
       </nav>
     </header>
   );

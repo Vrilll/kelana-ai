@@ -2,7 +2,7 @@ const steps = [
   {
     step: "01",
     title: "Tell us the basics",
-    body: "Destination, number of days, total budget. The API saves the trip to PostgreSQL and works out your category and daily spend.",
+    body: "Destination, number of days, total budget and who you are travelling with. The API saves the trip to PostgreSQL and works out your category and daily spend.",
   },
   {
     step: "02",
@@ -12,7 +12,7 @@ const steps = [
   {
     step: "03",
     title: "Adjust and go",
-    body: "Change the budget and the plan recalculates. Your trips stay saved, so you can come back and pick up where you left off.",
+    body: "Change the budget and the plan recalculates. Every trip is saved to your history dashboard, so you can come back and pick up where you left off.",
   },
 ];
 
@@ -25,7 +25,7 @@ export default function HowItWorks() {
             How it works
           </span>
           <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            From three inputs to a real itinerary
+            From a few inputs to a real itinerary
           </h2>
         </div>
 

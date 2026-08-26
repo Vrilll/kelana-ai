@@ -73,6 +73,33 @@ browser blocks every request from the Next.js origin, so the frontend could not 
 Allowed origins come from the optional `FRONTEND_ORIGINS` env var and default to
 `http://localhost:3000,http://127.0.0.1:3000`.
 
+### Session 7 - Connecting KelanaAI's Brain and Face (Trip History Dashboard)
+
+KelanaAI becomes a multi-page app. `/dashboard` reads every saved trip back out of
+PostgreSQL and renders it as a rich trip card.
+
+- **`frontend/app/dashboard/page.tsx`** - the trip history route.
+- **`frontend/components/TripDashboard.tsx`** - fetches `GET /api/v1/trips`, shows summary
+  stats, and handles the loading, empty and API-unreachable states.
+- **`frontend/components/TripCard.tsx`** - one saved trip: country flag, `USD 2,000`-style
+  budget, colour-coded category badge and a travel style badge.
+- **`frontend/components/Pagination.tsx`** - kicks in past 10 trips per page, collapsing long
+  page lists to `1 ... 4 5 6 ... 12`.
+- **`frontend/lib/trip-display.ts`** - the shared presentation rules (destination to country
+  code, currency formatting, badge colours) used by both the planner and the dashboard.
+
+**Travel style:** the badge needed real data to show, so `travel_style` (`Solo`, `Couple`,
+`Family`) was added to the `trips` table, to `POST /api/v1/trips`, and to the planner form.
+The value is validated with `Literal`, so an unknown style gets a `422` instead of being stored.
+Trips saved before this column existed stay `NULL` and render a neutral "Style not set" badge
+rather than being backfilled with a style nobody chose.
+
+**Flags:** destinations map to ISO country codes and render as flag images, not emoji. Windows
+ships no country-flag font, so an emoji flag degrades to bare letters there - `getDestinationCountry`
+returns `null` for unrecognised destinations and the card falls back to a neutral globe.
+
+`GET /api/v1/trips` now returns newest first, which is the order a history view wants.
+
 ## Project Structure
 
 ```
@@ -100,16 +127,23 @@ kelana-ai/
   │ ├── globals.css
   │ ├── layout.tsx
   │ └── page.tsx
+  ├── app/dashboard/
+  │ └── page.tsx
   ├── components/
   │ ├── DestinationGrid.tsx
   │ ├── Footer.tsx
   │ ├── Hero.tsx
   │ ├── HowItWorks.tsx
   │ ├── Navbar.tsx
+  │ ├── Pagination.tsx
   │ ├── PlannerExperience.tsx
+  │ ├── TravelStyleIcon.tsx
+  │ ├── TripCard.tsx
+  │ ├── TripDashboard.tsx
   │ └── TripPlanner.tsx
   └── lib/
-    └── api.ts
+    ├── api.ts
+    └── trip-display.ts
 ```
 
 ## How to Run
@@ -147,7 +181,12 @@ npm install
 npm run dev
 ```
 
-The homepage is served at `http://localhost:3000`.
+The app is served at `http://localhost:3000`:
+
+| Route        | What it does                                                      |
+|--------------|-------------------------------------------------------------------|
+| `/`          | Homepage: hero, trip planner, destinations, how it works           |
+| `/dashboard` | Trip history: every saved trip as a card, paginated past 10 items  |
 
 If your API is not on `http://127.0.0.1:8000`, copy `.env.local.example` to `.env.local` and point
 `NEXT_PUBLIC_API_URL` at it. Remember to add that origin to `FRONTEND_ORIGINS` on the backend too,
@@ -177,6 +216,7 @@ otherwise CORS will block the browser.
 | `destination` | string | Destination name |
 | `days` | integer | Number of travel days |
 | `budget` | float | Total trip budget |
+| `travel_style` | string | `Solo`, `Couple` or `Family`. Optional, defaults to `Solo` |
 
 `PUT /api/v1/trips/{id}` expects a JSON body with:
 
@@ -198,7 +238,8 @@ otherwise CORS will block the browser.
   "budget": 1500,
   "daily_budget": 300,
   "category": "Standard",
-  "ai_recommendation": null
+  "ai_recommendation": null,
+  "travel_style": "Couple"
 }
 ```
 
@@ -227,3 +268,4 @@ Evening:
 - [x] PostgreSQL persistence with SQLAlchemy
 - [x] Amazon Bedrock-powered recommendations
 - [x] Frontend (Next.js) integration
+- [x] Trip history dashboard with paginated trip cards

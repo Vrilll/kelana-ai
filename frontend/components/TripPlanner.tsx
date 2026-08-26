@@ -2,18 +2,17 @@
 
 import { useState } from "react";
 
-import {
-  createTrip,
-  formatCurrency,
-  generateItinerary,
-  type Trip,
-} from "@/lib/api";
+import Link from "next/link";
 
-const categoryStyles: Record<string, string> = {
-  Backpacker: "bg-brand-100 text-brand-700",
-  Standard: "bg-sunset-100 text-sunset-700",
-  Luxury: "bg-ink-800 text-white",
-};
+import TravelStyleIcon from "@/components/TravelStyleIcon";
+import { createTrip, generateItinerary, type Trip } from "@/lib/api";
+import {
+  formatCurrency,
+  getCategoryBadge,
+  getTravelStyleBadge,
+  TRAVEL_STYLES,
+  type TravelStyle,
+} from "@/lib/trip-display";
 
 type TripPlannerProps = {
   destination: string;
@@ -26,6 +25,7 @@ export default function TripPlanner({
 }: TripPlannerProps) {
   const [days, setDays] = useState("5");
   const [budget, setBudget] = useState("1500");
+  const [travelStyle, setTravelStyle] = useState<TravelStyle>("Solo");
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,7 @@ export default function TripPlanner({
         destination: destination.trim(),
         days: Number(days),
         budget: Number(budget),
+        travel_style: travelStyle,
       });
       setTrip(created);
     } catch (caught) {
@@ -80,7 +81,7 @@ export default function TripPlanner({
               Build your itinerary
             </h2>
             <p className="mt-1.5 text-sm text-ink-600">
-              Three details is all KelanaAI needs to get started.
+              Four details is all KelanaAI needs to get started.
             </p>
           </div>
 
@@ -89,7 +90,7 @@ export default function TripPlanner({
             onSubmit={handleSubmit}
             className="grid grid-cols-1 gap-5 md:grid-cols-12"
           >
-            <div className="md:col-span-5">
+            <div className="md:col-span-4">
               <label
                 htmlFor="destination"
                 className="mb-2 block text-xs font-semibold uppercase tracking-wider text-ink-400"
@@ -108,7 +109,7 @@ export default function TripPlanner({
               />
             </div>
 
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <label
                 htmlFor="days"
                 className="mb-2 block text-xs font-semibold uppercase tracking-wider text-ink-400"
@@ -128,7 +129,7 @@ export default function TripPlanner({
               />
             </div>
 
-            <div className="md:col-span-4">
+            <div className="md:col-span-3">
               <label
                 htmlFor="budget"
                 className="mb-2 block text-xs font-semibold uppercase tracking-wider text-ink-400"
@@ -146,6 +147,30 @@ export default function TripPlanner({
                 onChange={(event) => setBudget(event.target.value)}
                 className="w-full rounded-xl border border-ink-100 bg-ink-50 px-4 py-3 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/15"
               />
+            </div>
+
+            <div className="md:col-span-3">
+              <label
+                htmlFor="travel-style"
+                className="mb-2 block text-xs font-semibold uppercase tracking-wider text-ink-400"
+              >
+                Travel style
+              </label>
+              <select
+                id="travel-style"
+                name="travel_style"
+                value={travelStyle}
+                onChange={(event) =>
+                  setTravelStyle(event.target.value as TravelStyle)
+                }
+                className="w-full appearance-none rounded-xl border border-ink-100 bg-ink-50 px-4 py-3 text-sm text-ink-900 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-500/15"
+              >
+                {TRAVEL_STYLES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="md:col-span-12">
@@ -172,18 +197,32 @@ export default function TripPlanner({
             <div className="animate-rise mt-8 border-t border-ink-100 pt-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <span
-                    className={`inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                      categoryStyles[trip.category] ?? "bg-ink-100 text-ink-600"
-                    }`}
-                  >
-                    {trip.category}
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ring-1 ring-inset ${getCategoryBadge(trip.category).className}`}
+                    >
+                      {getCategoryBadge(trip.category).label}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ring-1 ring-inset ${getTravelStyleBadge(trip.travel_style).className}`}
+                    >
+                      <TravelStyleIcon
+                        name={getTravelStyleBadge(trip.travel_style).icon}
+                      />
+                      {getTravelStyleBadge(trip.travel_style).label}
+                    </span>
+                  </div>
                   <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900">
                     {trip.destination}
                   </h3>
                   <p className="mt-1 text-sm text-ink-600">
-                    {trip.days} days &middot; trip #{trip.id}
+                    {trip.days} days &middot; trip #{trip.id} &middot;{" "}
+                    <Link
+                      href="/dashboard"
+                      className="font-semibold text-brand-600 hover:text-brand-700"
+                    >
+                      see all trips
+                    </Link>
                   </p>
                 </div>
 

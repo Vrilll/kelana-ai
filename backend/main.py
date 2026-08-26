@@ -1,12 +1,13 @@
 """
 KelanaAI - FastAPI Web Service
-Session 6: Giving KelanaAI a Face (Next.js frontend)
+Session 7: Connecting KelanaAI's Brain and Face (Trip History Dashboard)
 
 Full CRUD: Create, Read (list + by id), Update, Delete,
 plus an AI-generated itinerary endpoint backed by Amazon Bedrock.
 """
 
 import os
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,10 +38,15 @@ app.add_middleware(
 init_db()
 
 
+# Who the trip is for. Literal gives a 422 instead of silently storing junk.
+TravelStyle = Literal["Solo", "Couple", "Family"]
+
+
 class TripRequest(BaseModel):
     destination: str
     days: int
     budget: float
+    travel_style: TravelStyle = "Solo"
 
 
 class TripUpdateRequest(BaseModel):
@@ -71,6 +77,7 @@ def create_trip(request: TripRequest):
         budget=request.budget,
         category=category,
         daily_budget=daily_budget,
+        travel_style=request.travel_style,
     )
 
     db = SessionLocal()
@@ -82,11 +89,11 @@ def create_trip(request: TripRequest):
     return trip
 
 
-# --- Read: list all trips ---
+# --- Read: list all trips, newest first (Session 7 history dashboard) ---
 @app.get("/api/v1/trips")
 def list_trips():
     db = SessionLocal()
-    trips = db.query(Trip).all()
+    trips = db.query(Trip).order_by(Trip.id.desc()).all()
     db.close()
     return trips
 

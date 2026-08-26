@@ -40,3 +40,13 @@ def init_db() -> None:
                 "ADD COLUMN IF NOT EXISTS ai_recommendation TEXT"
             )
         )
+
+        # Session 7: travel style ("Solo", "Couple", "Family"). Added without a
+        # DEFAULT on purpose - older rows stay NULL rather than being backfilled
+        # with a style nobody actually chose.
+        connection.execute(
+            text(
+                "ALTER TABLE trips "
+                "ADD COLUMN IF NOT EXISTS travel_style VARCHAR"
+            )
+        )

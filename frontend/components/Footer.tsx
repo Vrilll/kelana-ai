@@ -4,9 +4,10 @@ const footerLinks = [
   {
     heading: "Product",
     links: [
-      { label: "Plan a trip", href: "#plan" },
-      { label: "Destinations", href: "#destinations" },
-      { label: "How it works", href: "#how-it-works" },
+      { label: "Plan a trip", href: "/#plan" },
+      { label: "Destinations", href: "/#destinations" },
+      { label: "How it works", href: "/#how-it-works" },
+      { label: "Trip history", href: "/dashboard" },
     ],
   },
   {
@@ -85,7 +86,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} KelanaAI. All rights reserved.
           </p>
           <p className="text-sm text-ink-400">
-            Built for the KelanaAI bootcamp &middot; Session 6
+            Built for the KelanaAI bootcamp &middot; Session 7
           </p>
         </div>
       </div>

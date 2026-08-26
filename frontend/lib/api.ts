@@ -13,12 +13,15 @@ export type Trip = {
   daily_budget: number;
   category: string;
   ai_recommendation: string | null;
+  /** null for trips saved before the travel_style column existed */
+  travel_style: string | null;
 };
 
 export type TripRequest = {
   destination: string;
   days: number;
   budget: number;
+  travel_style: string;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -53,14 +56,10 @@ export function createTrip(payload: TripRequest) {
   });
 }
 
-export function generateItinerary(tripId: number) {
-  return request<Trip>(`/api/v1/trips/${tripId}/generate`, { method: "POST" });
+export function listTrips() {
+  return request<Trip[]>("/api/v1/trips", { cache: "no-store" });
 }
 
-export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+export function generateItinerary(tripId: number) {
+  return request<Trip>(`/api/v1/trips/${tripId}/generate`, { method: "POST" });
 }
