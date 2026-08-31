@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { AuthProvider } from "@/components/AuthProvider";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
@@ -35,12 +36,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans">
-        {/* Navbar and footer live here so every page shares them */}
-        <div className="flex min-h-screen flex-col">
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
+        {/* One session for the whole app; navbar and footer are shared too. */}
+        <AuthProvider>
+          <div className="flex min-h-screen flex-col">
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

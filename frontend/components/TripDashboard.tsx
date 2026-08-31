@@ -64,13 +64,13 @@ export default function TripDashboard() {
             Your saved trips
           </h1>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-600">
-            Every trip you plan is stored in PostgreSQL, so it is still here
-            next time you come back.
+            Only your own trips appear here. Every one is stored in PostgreSQL
+            against your account, so it is still here next time you come back.
           </p>
         </div>
 
         <Link
-          href="/#plan"
+          href="/plan"
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-ink-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
         >
           Plan a new trip
@@ -143,10 +143,10 @@ export default function TripDashboard() {
             No trips saved yet
           </h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink-600">
-            Plan your first trip on the homepage and it will show up here.
+            Plan your first trip and it will show up here.
           </p>
           <Link
-            href="/#plan"
+            href="/plan"
             className="mt-6 inline-flex items-center justify-center rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-ink-900 transition hover:bg-brand-300"
           >
             Plan my first trip
@@ -158,7 +158,9 @@ export default function TripDashboard() {
         <>
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
+              <Link key={trip.id} href={`/trips/${trip.id}`} className="block">
+                <TripCard trip={trip} />
+              </Link>
             ))}
           </div>
 

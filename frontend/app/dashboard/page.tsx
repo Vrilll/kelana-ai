@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import RequireAuth from "@/components/RequireAuth";
 import TripDashboard from "@/components/TripDashboard";
 
 export const metadata: Metadata = {
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  return <TripDashboard />;
+  return (
+    <RequireAuth>
+      <TripDashboard />
+    </RequireAuth>
+  );
 }

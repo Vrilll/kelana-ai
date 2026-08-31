@@ -47,7 +47,7 @@ export default function Hero() {
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <a
-              href="#plan"
+              href="/plan"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-7 py-3.5 text-sm font-semibold text-ink-900 shadow-xl shadow-brand-500/25 transition-transform hover:-translate-y-0.5 hover:bg-brand-300"
             >
               Plan my trip

@@ -4,7 +4,7 @@ const footerLinks = [
   {
     heading: "Product",
     links: [
-      { label: "Plan a trip", href: "/#plan" },
+      { label: "Plan a trip", href: "/plan" },
       { label: "Destinations", href: "/#destinations" },
       { label: "How it works", href: "/#how-it-works" },
       { label: "Trip history", href: "/dashboard" },
@@ -19,11 +19,11 @@ const footerLinks = [
     ],
   },
   {
-    heading: "Company",
+    heading: "Account",
     links: [
-      { label: "About", href: "#" },
-      { label: "Privacy", href: "#" },
-      { label: "Terms", href: "#" },
+      { label: "Sign in", href: "/login" },
+      { label: "Create an account", href: "/register" },
+      { label: "Your profile", href: "/profile" },
     ],
   },
 ];
@@ -86,7 +86,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} KelanaAI. All rights reserved.
           </p>
           <p className="text-sm text-ink-400">
-            Built for the KelanaAI bootcamp &middot; Session 7
+            Built for the KelanaAI bootcamp &middot; Session 8
           </p>
         </div>
       </div>

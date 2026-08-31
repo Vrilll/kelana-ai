@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 const destinations = [
   {
@@ -59,11 +60,7 @@ const destinations = [
   },
 ];
 
-type DestinationGridProps = {
-  onSelect: (destination: string) => void;
-};
-
-export default function DestinationGrid({ onSelect }: DestinationGridProps) {
+export default function DestinationGrid() {
   return (
     <section id="destinations" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
       <div className="max-w-2xl">
@@ -74,8 +71,8 @@ export default function DestinationGrid({ onSelect }: DestinationGridProps) {
           Destinations travellers keep asking for
         </h2>
         <p className="mt-4 text-base leading-relaxed text-ink-600">
-          Pick one to prefill the planner, or type your own. Every plan is built
-          from your budget, not a template.
+          Pick one to open the planner with it filled in, or type your own.
+          Every plan is built from your budget, not a template.
         </p>
       </div>
 
@@ -109,11 +106,10 @@ export default function DestinationGrid({ onSelect }: DestinationGridProps) {
               <p className="mt-2 text-sm leading-relaxed text-ink-600">
                 {destination.blurb}
               </p>
-              <button
-                type="button"
-                onClick={() =>
-                  onSelect(`${destination.name}, ${destination.country}`)
-                }
+              <Link
+                href={`/plan?destination=${encodeURIComponent(
+                  `${destination.name}, ${destination.country}`,
+                )}`}
                 className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 transition-colors hover:text-brand-700"
               >
                 Plan this trip
@@ -129,7 +125,7 @@ export default function DestinationGrid({ onSelect }: DestinationGridProps) {
                 >
                   <path d="M5 12h13M13 6l6 6-6 6" />
                 </svg>
-              </button>
+              </Link>
             </div>
           </article>
         ))}

@@ -8,6 +8,7 @@ AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 - [Project Structure](#project-structure)
 - [How to Run](#how-to-run)
 - [Frontend](#frontend)
+- [Authentication](#authentication)
 - [API Endpoints](#api-endpoints)
 - [Input](#input)
 - [Example Output](#example-output)
@@ -100,21 +101,65 @@ returns `null` for unrecognised destinations and the card falls back to a neutra
 
 `GET /api/v1/trips` now returns newest first, which is the order a history view wants.
 
+### Session 8 - Teaching KelanaAI to Know Its Users (Accounts and Ownership)
+
+Trips stop being public. Every trip endpoint needs a bearer token, and every trip
+belongs to exactly one account.
+
+- **`backend/models/user.py`** - the `users` table. Only the bcrypt hash is stored.
+- **`backend/services/auth_service.py`** - bcrypt hashing plus HS256 JSON Web Tokens.
+- **`backend/main.py`** - `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+  `GET /api/v1/auth/me`, and a `get_current_user` dependency on every trip route.
+- **`backend/test_ownership.py`** - runs the real app against a scratch SQLite file and
+  asserts the rules below. Run `python test_ownership.py` from `backend/`.
+
+**The ownership rules**
+
+| Situation | Response |
+|-----------|----------|
+| No token, or a bad or expired one | `401` |
+| `GET /api/v1/trips` | only the trips whose `user_id` is yours |
+| `GET` / `PUT` / `DELETE` / `generate` on your own trip | `200` |
+| The same calls on somebody else's trip | `403` |
+| The same calls on a trip id that does not exist | `404` |
+
+A trip that does not exist answers `404` while one you may not touch answers `403`,
+exactly as the brief asks. Trips saved before accounts existed have `user_id = NULL`:
+they belong to nobody, stay out of every list and answer `403`, rather than being
+handed to whoever registers first.
+
+**Frontend**
+
+- **`components/AuthProvider.tsx`** - holds the session, restores it on load, and signs
+  you out if the API ever rejects the token.
+- **`components/RequireAuth.tsx`** - wraps `/plan`, `/dashboard`, `/trips/[id]` and
+  `/profile`, sending signed-out visitors to `/login?next=<where they were going>`.
+- **`components/AuthForm.tsx`** - the shared register and login form.
+- `/` stays public; the planner moved to the protected `/plan`.
+
+The route guard is a convenience, not the security boundary. The real protection is the
+API: a visitor who bypasses the guard still gets `401`, and a signed-in user who opens
+somebody else's trip id gets `403` with none of that trip's data in the response.
+
 ## Project Structure
 
 ```
 kelana-ai/
 ├── README.md
+├── .gitignore
 ├── backend/
 │ ├── main.py
 │ ├── database.py
 │ ├── requirements.txt
 │ ├── .env.example
+│ ├── test_ownership.py
 │ ├── models/
 │ │ ├── __init__.py
-│ │ └── trip.py
+│ │ ├── trip.py
+│ │ └── user.py
 │ └── services/
 │ ├── __init__.py
+│ ├── auth_service.py
 │ ├── trip_service.py
 │ └── bedrock_service.py
 └── frontend/
@@ -126,10 +171,16 @@ kelana-ai/
   ├── app/
   │ ├── globals.css
   │ ├── layout.tsx
-  │ └── page.tsx
-  ├── app/dashboard/
-  │ └── page.tsx
+  │ ├── page.tsx
+  │ ├── login/page.tsx
+  │ ├── register/page.tsx
+  │ ├── plan/page.tsx
+  │ ├── dashboard/page.tsx
+  │ ├── profile/page.tsx
+  │ └── trips/[id]/page.tsx
   ├── components/
+  │ ├── AuthForm.tsx
+  │ ├── AuthProvider.tsx
   │ ├── DestinationGrid.tsx
   │ ├── Footer.tsx
   │ ├── Hero.tsx
@@ -137,9 +188,12 @@ kelana-ai/
   │ ├── Navbar.tsx
   │ ├── Pagination.tsx
   │ ├── PlannerExperience.tsx
+  │ ├── ProfilePanel.tsx
+  │ ├── RequireAuth.tsx
   │ ├── TravelStyleIcon.tsx
   │ ├── TripCard.tsx
   │ ├── TripDashboard.tsx
+  │ ├── TripDetail.tsx
   │ └── TripPlanner.tsx
   └── lib/
     ├── api.ts
@@ -156,7 +210,13 @@ kelana-ai/
    BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
    AWS_ACCESS_KEY_ID=<your key>
    AWS_SECRET_ACCESS_KEY=<your secret>
+   JWT_SECRET=<a long random string>
    ```
+
+   `JWT_SECRET` signs every login token. Generate your own with
+   `python -c "import secrets; print(secrets.token_urlsafe(48))"`. If it is left unset
+   the app boots with a shared development secret and prints a warning, and anyone who
+   knows that default can mint a token for any account.
 
    The Bedrock model you pick must be **enabled in your AWS account for that region**
    (Amazon Bedrock console → Model access).
@@ -183,27 +243,60 @@ npm run dev
 
 The app is served at `http://localhost:3000`:
 
-| Route        | What it does                                                      |
-|--------------|-------------------------------------------------------------------|
-| `/`          | Homepage: hero, trip planner, destinations, how it works           |
-| `/dashboard` | Trip history: every saved trip as a card, paginated past 10 items  |
+| Route         | What it does                                | Access    |
+|---------------|---------------------------------------------|-----------|
+| `/`           | Homepage: hero, destinations, how it works  | Public    |
+| `/register`   | Create an account                           | Public    |
+| `/login`      | Sign in                                     | Public    |
+| `/plan`       | Generate a trip                             | Signed in |
+| `/dashboard`  | Your trip history, paginated past 10 items  | Signed in |
+| `/trips/{id}` | One trip: itinerary, budget edit, delete    | Signed in |
+| `/profile`    | Your account and travel totals              | Signed in |
 
 If your API is not on `http://127.0.0.1:8000`, copy `.env.local.example` to `.env.local` and point
 `NEXT_PUBLIC_API_URL` at it. Remember to add that origin to `FRONTEND_ORIGINS` on the backend too,
 otherwise CORS will block the browser.
 
+## Authentication
+
+Create an account, then use the returned token on every trip request.
+
+```bash
+# 1. Register (or POST to /api/v1/auth/login if you already have an account)
+curl -X POST http://127.0.0.1:8000/api/v1/auth/register   -H "Content-Type: application/json"   -d '{"email":"you@example.com","password":"at-least-8-chars","full_name":"You"}'
+
+# 2. Use the access_token it returns
+curl http://127.0.0.1:8000/api/v1/trips   -H "Authorization: Bearer <access_token>"
+```
+
+Passwords are hashed with bcrypt and never stored or returned in plain text. Tokens are
+signed with HS256 using `JWT_SECRET` and expire after `JWT_TTL_HOURS` (24 by default).
+
+To check the ownership rules yourself:
+
+```bash
+cd backend
+pip install httpx        # only needed for the test file
+python test_ownership.py
+```
+
 ## API Endpoints
+
+Every `/api/v1/trips` endpoint requires an `Authorization: Bearer <token>` header.
 
 | Method | Endpoint                        | Description                                                   |
 |--------|----------------------------------|----------------------------------------------------------------|
 | GET    | `/`                              | Welcome message                                                 |
 | GET    | `/health`                        | Health check                                                    |
+| POST   | `/api/v1/auth/register`          | Create an account, returns a token                              |
+| POST   | `/api/v1/auth/login`             | Sign in, returns a token                                        |
+| GET    | `/api/v1/auth/me`                | The signed-in account                                           |
 | POST   | `/api/v1/trips`                  | Create a trip and get category + daily budget                   |
-| GET    | `/api/v1/trips`                  | List all saved trips                                            |
-| GET    | `/api/v1/trips/{id}`             | Get a single trip by id                                         |
-| PUT    | `/api/v1/trips/{id}`             | Update a trip's budget (recalculates category + daily budget)   |
-| DELETE | `/api/v1/trips/{id}`             | Delete a trip by id                                             |
-| POST   | `/api/v1/trips/{id}/generate`    | Generate an AI itinerary via Bedrock and save it to the trip    |
+| GET    | `/api/v1/trips`                  | List **your own** trips, newest first                                            |
+| GET    | `/api/v1/trips/{id}`             | Get one of your trips; `403` if not yours                                         |
+| PUT    | `/api/v1/trips/{id}`             | Update your trip's budget; `403` if not yours   |
+| DELETE | `/api/v1/trips/{id}`             | Delete your trip; `403` if not yours                                             |
+| POST   | `/api/v1/trips/{id}/generate`    | Generate an AI itinerary for your trip; `403` if not yours    |
 | GET    | `/api/v1/recommendations`        | List of recommended places                                      |
 | GET    | `/api/v1/transportations`        | List of available transportation options                        |
 
@@ -217,6 +310,8 @@ otherwise CORS will block the browser.
 | `days` | integer | Number of travel days |
 | `budget` | float | Total trip budget |
 | `travel_style` | string | `Solo`, `Couple` or `Family`. Optional, defaults to `Solo` |
+
+The owner is taken from the bearer token, never from the request body.
 
 `PUT /api/v1/trips/{id}` expects a JSON body with:
 
@@ -239,7 +334,8 @@ otherwise CORS will block the browser.
   "daily_budget": 300,
   "category": "Standard",
   "ai_recommendation": null,
-  "travel_style": "Couple"
+  "travel_style": "Couple",
+  "user_id": 1
 }
 ```
 
@@ -269,3 +365,4 @@ Evening:
 - [x] Amazon Bedrock-powered recommendations
 - [x] Frontend (Next.js) integration
 - [x] Trip history dashboard with paginated trip cards
+- [x] Accounts, login and per-user trip ownership

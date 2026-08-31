@@ -3,15 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Anchors are root-relative so they still work from /dashboard.
-const links = [
-  { href: "/#plan", label: "Plan a trip" },
-  { href: "/#destinations", label: "Destinations" },
+import { useAuth } from "@/components/AuthProvider";
+
+const signedInLinks = [
+  { href: "/plan", label: "Plan a trip" },
   { href: "/dashboard", label: "Trip history" },
+  { href: "/profile", label: "Profile" },
+];
+
+const signedOutLinks = [
+  { href: "/#destinations", label: "Destinations" },
+  { href: "/#how-it-works", label: "How it works" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, isLoading, logout } = useAuth();
+
+  const links = user ? signedInLinks : signedOutLinks;
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-ink-900/95 backdrop-blur-md">
@@ -59,22 +68,42 @@ export default function Navbar() {
           })}
         </ul>
 
-        {/* On mobile the nav links collapse away, so keep the dashboard
-            reachable next to the primary action. */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            className="rounded-full border border-white/25 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10 md:hidden"
-          >
-            History
-          </Link>
-          <Link
-            href="/#plan"
-            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition-transform hover:-translate-y-0.5 hover:bg-brand-100 sm:px-5"
-          >
-            Start planning
-          </Link>
-        </div>
+        {/* Rendered only once the stored session has been read, so the bar does
+            not flash "Sign in" at somebody who is already logged in. */}
+        {isLoading ? (
+          <span className="h-9 w-28 animate-pulse rounded-full bg-white/10" />
+        ) : user ? (
+          <div className="flex items-center gap-2">
+            <Link
+              href="/profile"
+              className="hidden max-w-[10rem] truncate text-sm font-medium text-ink-100/80 transition-colors hover:text-white sm:block"
+            >
+              {user.full_name || user.email}
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-full border border-white/25 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="rounded-full border border-white/25 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-ink-900 transition-transform hover:-translate-y-0.5 hover:bg-brand-100 sm:px-5"
+            >
+              Sign up
+            </Link>
+          </div>
+        )}
       </nav>
     </header>
   );

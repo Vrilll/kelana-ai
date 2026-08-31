@@ -4,3 +4,8 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 boto3
+
+# Session 8: authentication
+PyJWT
+bcrypt
+email-validator
