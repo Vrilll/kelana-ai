@@ -9,6 +9,7 @@ AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 - [How to Run](#how-to-run)
 - [Frontend](#frontend)
 - [Authentication](#authentication)
+- [Knowledge Base](#knowledge-base)
 - [API Endpoints](#api-endpoints)
 - [Input](#input)
 - [Example Output](#example-output)
@@ -141,18 +142,71 @@ The route guard is a convenience, not the security boundary. The real protection
 API: a visitor who bypasses the guard still gets `401`, and a signed-in user who opens
 somebody else's trip id gets `403` with none of that trip's data in the response.
 
+### Session 9 - Teaching KelanaAI to Read Knowledge (RAG)
+
+KelanaAI gets a knowledge base and answers from it instead of from memory.
+
+- **`backend/knowledge_base/`** - five markdown documents: service policies, budget
+  playbook, Indonesia and Japan destination playbooks, and a safety runbook.
+- **`backend/services/kb_service.py`** - retrieval plus two answer paths,
+  `answer_with_rag()` and `answer_with_base_model()`.
+- **`backend/services/fact_check.py`** - the scoring shared by both scripts.
+- **`backend/scripts/sync_kb.py`** - uploads the documents to S3 and starts a Bedrock
+  ingestion job. It never creates the bucket or the knowledge base.
+- **`backend/scripts/check_retrieval.py`** - retrieval quality, no AWS needed.
+- **`backend/scripts/compare_rag.py`** - the RAG vs base-model comparison.
+- **`POST /api/v1/ask`** - answer a question from the knowledge base (`mode: "rag"`)
+  or deliberately without it (`mode: "base"`). Requires a bearer token.
+- **`GET /api/v1/kb/search?q=`** - retrieval only, no model call. Useful for debugging.
+
+**Two retrievers.** Set `BEDROCK_KNOWLEDGE_BASE_ID` to query the managed Bedrock
+Knowledge Base. Leave it empty and the same documents are searched in-process with
+BM25, so retrieval can be developed and tested without an AWS account.
+
+**Results.** See [docs/rag-vs-base-model.md](docs/rag-vs-base-model.md) for the raw
+answers and scores, and [docs/rag-findings.md](docs/rag-findings.md) for what the
+scores do and do not show. Measured with `amazon.nova-lite-v1:0`: RAG scored 14/23
+facts, the base model 2/23. Reading the answers matters more than the totals - the
+base model invented a KelanaAI refund policy, a four-tier budget scale that does not
+exist, and a three-day Bali itinerary that KelanaAI will not sell.
+
+Retrieval is checked separately from generation
+([docs/retrieval-check.md](docs/retrieval-check.md)) because the two fail differently.
+That split is what showed Q2's wrong answer to be a reasoning error rather than a
+retrieval one: the right passage was in context and the model still misread it.
+
+**Model calls use the Converse API.** `invoke_model` needs a different request body
+per provider, so the old Anthropic-shaped body broke as soon as the model id pointed
+at Amazon Nova. Converse takes the same shape for every model; `bedrock_service.py`
+was migrated too.
+
 ## Project Structure
 
 ```
 kelana-ai/
 ├── README.md
 ├── .gitignore
+├── docs/
+│ ├── rag-vs-base-model.md
+│ ├── rag-findings.md
+│ └── retrieval-check.md
 ├── backend/
 │ ├── main.py
 │ ├── database.py
 │ ├── requirements.txt
 │ ├── .env.example
 │ ├── test_ownership.py
+│ ├── kb_questions.py
+│ ├── knowledge_base/
+│ │ ├── 01-kelana-service-policies.md
+│ │ ├── 02-budget-tiers-and-daily-costs.md
+│ │ ├── 03-indonesia-destination-playbook.md
+│ │ ├── 04-japan-destination-playbook.md
+│ │ └── 05-safety-and-disruption-runbook.md
+│ ├── scripts/
+│ │ ├── sync_kb.py
+│ │ ├── check_retrieval.py
+│ │ └── compare_rag.py
 │ ├── models/
 │ │ ├── __init__.py
 │ │ ├── trip.py
@@ -280,6 +334,37 @@ pip install httpx        # only needed for the test file
 python test_ownership.py
 ```
 
+## Knowledge Base
+
+Five markdown documents in `backend/knowledge_base/` hold KelanaAI's own operating
+knowledge: policies, budget rules, destination playbooks and the safety runbook.
+They are deliberately internal - the point of a RAG test is to ask things a base
+model cannot know, and public facts about Bali would not tell the two systems apart.
+
+Where a document touches something set by a government (visa rules, eruption alerts,
+tourist levies) it says so and points at the official source instead of asserting a
+number. The knowledge base records how KelanaAI *plans*; it is not a substitute for
+an embassy or a national agency.
+
+```bash
+cd backend
+
+# Retrieval quality. No AWS needed.
+python scripts/check_retrieval.py --out ../docs/retrieval-check.md
+
+# Upload the documents to S3 and start a Bedrock ingestion job.
+python scripts/sync_kb.py --dry-run     # list what would be uploaded
+python scripts/sync_kb.py
+
+# RAG vs base model. Ten Bedrock calls, writes docs/rag-vs-base-model.md.
+python scripts/compare_rag.py
+```
+
+`sync_kb.py` needs `KB_S3_BUCKET`, and starts an ingestion job only when
+`BEDROCK_KNOWLEDGE_BASE_ID` and `BEDROCK_DATA_SOURCE_ID` are both set. It never
+creates the bucket, the knowledge base or the vector store, because a Bedrock
+Knowledge Base carries a standing cost - provision those once, deliberately.
+
 ## API Endpoints
 
 Every `/api/v1/trips` endpoint requires an `Authorization: Bearer <token>` header.
@@ -297,6 +382,8 @@ Every `/api/v1/trips` endpoint requires an `Authorization: Bearer <token>` heade
 | PUT    | `/api/v1/trips/{id}`             | Update your trip's budget; `403` if not yours   |
 | DELETE | `/api/v1/trips/{id}`             | Delete your trip; `403` if not yours                                             |
 | POST   | `/api/v1/trips/{id}/generate`    | Generate an AI itinerary for your trip; `403` if not yours    |
+| POST   | `/api/v1/ask`                    | Answer from the knowledge base (`mode: rag`) or without it (`base`) |
+| GET    | `/api/v1/kb/search?q=`           | Retrieval only, no model call                                   |
 | GET    | `/api/v1/recommendations`        | List of recommended places                                      |
 | GET    | `/api/v1/transportations`        | List of available transportation options                        |
 
@@ -366,3 +453,4 @@ Evening:
 - [x] Frontend (Next.js) integration
 - [x] Trip history dashboard with paginated trip cards
 - [x] Accounts, login and per-user trip ownership
+- [x] Knowledge base with RAG answers, measured against the base model

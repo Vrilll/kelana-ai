@@ -1,6 +1,6 @@
 """
 KelanaAI - FastAPI Web Service
-Session 8: Teaching KelanaAI to Know Its Users
+Session 9: Teaching KelanaAI to Read Knowledge
 
 Every trip endpoint now requires a bearer token and is scoped to the account
 that owns the trip: you only ever see your own trips, and touching somebody
@@ -27,6 +27,7 @@ from services.auth_service import (
     hash_password,
     verify_password,
 )
+from services import kb_service
 from services.bedrock_service import generate_itinerary
 from services.trip_service import calculate_daily_budget, get_trip_category
 
@@ -91,6 +92,26 @@ class TripResponse(BaseModel):
     ai_recommendation: Optional[str] = None
     travel_style: Optional[str] = None
     user_id: Optional[int] = None
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    # "rag" answers from the knowledge base; "base" deliberately skips it, which
+    # is what the Session 9 comparison uses.
+    mode: Literal["rag", "base"] = "rag"
+
+
+class SourceResponse(BaseModel):
+    source: str
+    score: float
+    excerpt: str
+
+
+class AskResponse(BaseModel):
+    mode: str
+    backend: str
+    answer: str
+    sources: list[SourceResponse]
 
 
 class RegisterRequest(BaseModel):
@@ -355,6 +376,40 @@ def generate_trip_recommendation(
     db.refresh(trip)
 
     return TripResponse.model_validate(trip)
+
+
+# --- Ask: POST /api/v1/ask (Session 9) ---
+@app.post("/api/v1/ask", response_model=AskResponse)
+def ask(
+    request: AskRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Answer a travel question from the KelanaAI knowledge base."""
+    try:
+        if request.mode == "rag":
+            result = kb_service.answer_with_rag(request.question)
+        else:
+            result = kb_service.answer_with_base_model(request.question)
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to answer from Amazon Bedrock: {error}",
+        )
+
+    return AskResponse(**result)
+
+
+# --- Retrieval only, no model call: useful for debugging the knowledge base ---
+@app.get("/api/v1/kb/search", response_model=list[SourceResponse])
+def kb_search(
+    q: str,
+    current_user: User = Depends(get_current_user),
+):
+    passages = kb_service.retrieve(q)
+    return [
+        SourceResponse(source=p.source, score=p.score, excerpt=p.text[:280])
+        for p in passages
+    ]
 
 
 # --- Session 3 homework: static recommendation lists ---

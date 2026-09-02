@@ -5,7 +5,6 @@ Session 5: Teaching KelanaAI to Think with AI (Amazon Bedrock Integration)
 Business logic layer for the AI-generated travel itinerary.
 """
 
-import json
 import os
 
 import boto3
@@ -15,8 +14,13 @@ load_dotenv()
 
 # AWS settings come from .env - never hardcode credentials
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-BEDROCK_MODEL_ID = os.getenv(
-    "BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20240620-v1:0"
+
+# MODEL_ID is accepted as a fallback because that is the name the workshop
+# .env files use.
+BEDROCK_MODEL_ID = (
+    os.getenv("BEDROCK_MODEL_ID")
+    or os.getenv("MODEL_ID")
+    or "anthropic.claude-3-5-sonnet-20240620-v1:0"
 )
 
 
@@ -99,25 +103,15 @@ def generate_itinerary(trip):
 
     client = get_bedrock_client()
 
-    body = json.dumps(
-        {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 2000,
-            "temperature": 0.7,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-    )
-
-    response = client.invoke_model(
+    # Converse takes the same request shape for every provider, so the itinerary
+    # keeps working when BEDROCK_MODEL_ID points at Nova instead of Anthropic.
+    response = client.converse(
         modelId=BEDROCK_MODEL_ID,
-        contentType="application/json",
-        accept="application/json",
-        body=body,
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": 2000, "temperature": 0.7},
     )
 
-    payload = json.loads(response["body"].read())
-
-    # Anthropic models on Bedrock return a list of content blocks
     return "".join(
-        block.get("text", "") for block in payload.get("content", [])
+        block.get("text", "")
+        for block in response["output"]["message"]["content"]
     ).strip()
