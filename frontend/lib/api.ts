@@ -47,6 +47,34 @@ export type AuthResponse = {
   user: User;
 };
 
+export type MessageRole = "user" | "assistant";
+
+export type ChatMessage = {
+  id: number;
+  role: MessageRole;
+  content: string;
+  /** ISO 8601, always UTC - the backend stores DateTime(timezone=True) */
+  created_at: string;
+};
+
+export type ConversationSummary = {
+  id: number;
+  /** null until the first message exists */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConversationDetail = ConversationSummary & {
+  messages: ChatMessage[];
+};
+
+export type SendMessageResponse = {
+  conversation: ConversationSummary;
+  user_message: ChatMessage;
+  assistant_message: ChatMessage;
+};
+
 export class ApiError extends Error {
   status: number;
 
@@ -158,8 +186,8 @@ function messageForStatus(status: number, detail: unknown): string {
   }
 
   if (status === 401) return "Your session has expired. Please sign in again.";
-  if (status === 403) return "This trip belongs to another user.";
-  if (status === 404) return "We could not find that trip.";
+  if (status === 403) return "That belongs to another user.";
+  if (status === 404) return "We could not find that.";
 
   return `Request failed with status ${status}`;
 }
@@ -222,4 +250,36 @@ export function deleteTrip(tripId: number) {
 
 export function generateItinerary(tripId: number) {
   return request<Trip>(`/api/v1/trips/${tripId}/generate`, { method: "POST" });
+}
+
+// --- conversations (Session 10) ---------------------------------------------
+
+export function createConversation() {
+  return request<ConversationDetail>("/api/v1/conversations", { method: "POST" });
+}
+
+export function listConversations() {
+  return request<ConversationSummary[]>("/api/v1/conversations", {
+    cache: "no-store",
+  });
+}
+
+export function getConversation(conversationId: number) {
+  return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
+    cache: "no-store",
+  });
+}
+
+export function sendMessage(conversationId: number, content: string) {
+  return request<SendMessageResponse>(
+    `/api/v1/conversations/${conversationId}/messages`,
+    { method: "POST", body: JSON.stringify({ content }) },
+  );
+}
+
+export function deleteConversation(conversationId: number) {
+  return request<{ message: string }>(
+    `/api/v1/conversations/${conversationId}`,
+    { method: "DELETE" },
+  );
 }

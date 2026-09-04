@@ -8,6 +8,7 @@ const footerLinks = [
       { label: "Destinations", href: "/#destinations" },
       { label: "How it works", href: "/#how-it-works" },
       { label: "Trip history", href: "/dashboard" },
+      { label: "Chat", href: "/chat" },
     ],
   },
   {
@@ -86,7 +87,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} KelanaAI. All rights reserved.
           </p>
           <p className="text-sm text-ink-400">
-            Built for the KelanaAI bootcamp &middot; Session 8
+            Built for the KelanaAI bootcamp &middot; Session 10
           </p>
         </div>
       </div>

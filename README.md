@@ -10,6 +10,7 @@ AI Travel Planner built with Python, Next.js & Amazon Bedrock.
 - [Frontend](#frontend)
 - [Authentication](#authentication)
 - [Knowledge Base](#knowledge-base)
+- [Chat](#chat)
 - [API Endpoints](#api-endpoints)
 - [Input](#input)
 - [Example Output](#example-output)
@@ -180,6 +181,56 @@ per provider, so the old Anthropic-shaped body broke as soon as the model id poi
 at Amazon Nova. Converse takes the same shape for every model; `bedrock_service.py`
 was migrated too.
 
+### Session 10 - Teaching KelanaAI to Remember Conversations
+
+Bedrock still has no memory of its own - "memory" is two new tables plus the backend
+reassembling them into the model's context before every call.
+
+- **`backend/models/conversation.py`** - `conversations` and `messages`. Every turn is
+  stored; a conversation belongs to exactly one account, same ownership rule as trips.
+- **`backend/services/kb_service.answer_conversation()`** - takes the full message
+  history (oldest first), retrieves against only the latest user turn, and sends the
+  whole history to Bedrock's Converse API so earlier turns are still in context.
+- **`POST /api/v1/conversations`**, **`GET /api/v1/conversations`**,
+  **`GET /api/v1/conversations/{id}`**, **`POST /api/v1/conversations/{id}/messages`**,
+  **`DELETE /api/v1/conversations/{id}`** - all bearer-token gated, all `403` on
+  someone else's conversation, same as trips.
+- **`backend/test_conversations.py`** - 37 checks against the real app on SQLite, with
+  `answer_conversation` swapped for a fake so no AWS account is needed to run it. It
+  asserts the history sent to the model on the *second* message is exactly the four
+  prior turns in order plus the new one - that reassembly is what "memory" means here
+  - and that a Bedrock failure keeps the traveller's own message instead of losing it.
+  `python test_conversations.py` from `backend/`.
+
+**A timezone bug the tests caught.** `MessageResponse`/`ConversationSummary` now run a
+`field_validator` that stamps UTC onto any naive datetime before it leaves the API.
+SQLite (unlike PostgreSQL's `TIMESTAMPTZ`) does not preserve `tzinfo` on read, so a
+timestamp written as UTC came back from the ORM naive and serialized with no `Z` or
+offset - a browser more than a few minutes from UTC then read it as local time. On a
+UTC+7 machine, a message sent seconds ago showed as "7 hours ago". The Python test
+suites never caught it because they only check that a timestamp is present, not what a
+browser does with it; a live browser check against the real API did.
+
+**Frontend chat interface** - the four requested UX pieces:
+
+- **Conversation title** - the traveller's first message, shown at the top of
+  `components/ChatWindow.tsx`; `"New conversation"` until it exists.
+- **Auto-scroll** - instant to the bottom on opening an existing conversation, smooth
+  for every message after that (including the typing indicator appearing), and it
+  overrides a manual scroll-up the moment a new message arrives.
+- **Typing indicator** - three bouncing dots (`components/TypingIndicator.tsx`) shown
+  as an assistant-side bubble from the moment a message is sent until the reply lands.
+- **Timestamp per bubble** - `lib/chat-display.ts` formats each message's time
+  (`"14:32"`, or `"Sep 3, 14:32"` once it is no longer today) and each conversation's
+  last-active time on the `/chat` list (`"3 hours ago"`).
+- **`app/chat/page.tsx`** - the conversation list, and **`app/chat/[id]/page.tsx`** -
+  one conversation, both behind `RequireAuth`.
+
+The composer sends the message optimistically (shows it before the server confirms),
+and if the reply fails, drops the optimistic bubble and puts the text back in the
+composer rather than losing it - the backend still keeps the traveller's message
+either way, per `_append_message_and_reply()`'s design.
+
 ## Project Structure
 
 ```
@@ -196,6 +247,7 @@ kelana-ai/
 │ ├── requirements.txt
 │ ├── .env.example
 │ ├── test_ownership.py
+│ ├── test_conversations.py
 │ ├── kb_questions.py
 │ ├── knowledge_base/
 │ │ ├── 01-kelana-service-policies.md
@@ -210,12 +262,15 @@ kelana-ai/
 │ ├── models/
 │ │ ├── __init__.py
 │ │ ├── trip.py
-│ │ └── user.py
+│ │ ├── user.py
+│ │ └── conversation.py
 │ └── services/
 │ ├── __init__.py
 │ ├── auth_service.py
 │ ├── trip_service.py
-│ └── bedrock_service.py
+│ ├── bedrock_service.py
+│ ├── kb_service.py
+│ └── fact_check.py
 └── frontend/
   ├── package.json
   ├── next.config.mjs
@@ -231,14 +286,19 @@ kelana-ai/
   │ ├── plan/page.tsx
   │ ├── dashboard/page.tsx
   │ ├── profile/page.tsx
-  │ └── trips/[id]/page.tsx
+  │ ├── trips/[id]/page.tsx
+  │ ├── chat/page.tsx
+  │ └── chat/[id]/page.tsx
   ├── components/
   │ ├── AuthForm.tsx
   │ ├── AuthProvider.tsx
+  │ ├── ChatWindow.tsx
+  │ ├── ConversationList.tsx
   │ ├── DestinationGrid.tsx
   │ ├── Footer.tsx
   │ ├── Hero.tsx
   │ ├── HowItWorks.tsx
+  │ ├── MessageBubble.tsx
   │ ├── Navbar.tsx
   │ ├── Pagination.tsx
   │ ├── PlannerExperience.tsx
@@ -248,9 +308,11 @@ kelana-ai/
   │ ├── TripCard.tsx
   │ ├── TripDashboard.tsx
   │ ├── TripDetail.tsx
-  │ └── TripPlanner.tsx
+  │ ├── TripPlanner.tsx
+  │ └── TypingIndicator.tsx
   └── lib/
     ├── api.ts
+    ├── chat-display.ts
     └── trip-display.ts
 ```
 
@@ -305,6 +367,8 @@ The app is served at `http://localhost:3000`:
 | `/plan`       | Generate a trip                             | Signed in |
 | `/dashboard`  | Your trip history, paginated past 10 items  | Signed in |
 | `/trips/{id}` | One trip: itinerary, budget edit, delete    | Signed in |
+| `/chat`       | Your conversations, and a "New chat" button | Signed in |
+| `/chat/{id}`  | One conversation - see [Chat](#chat)        | Signed in |
 | `/profile`    | Your account and travel totals              | Signed in |
 
 If your API is not on `http://127.0.0.1:8000`, copy `.env.local.example` to `.env.local` and point
@@ -365,6 +429,33 @@ python scripts/compare_rag.py
 creates the bucket, the knowledge base or the vector store, because a Bedrock
 Knowledge Base carries a standing cost - provision those once, deliberately.
 
+## Chat
+
+`/chat` starts a conversation that remembers itself. Every message you send and every
+reply is stored in PostgreSQL; before each new call, the backend reads that history
+back and sends the whole thing to Bedrock, because the model itself keeps nothing
+between calls. Retrieval for a reply runs only against your latest message, not the
+full conversation, so an earlier unrelated question cannot dilute what is being asked
+right now - but the model still sees every prior turn, so "and what about the balance?"
+correctly resolves to whatever you were just discussing.
+
+The interface:
+
+- **Conversation title** at the top, taken from your first message.
+- **Auto-scroll** - instant to the latest message when you open a conversation,
+  smooth for every message after that.
+- **Typing indicator** while a reply is on its way.
+- **Timestamp** on every message bubble, and a "3 hours ago" style time on the
+  conversation list.
+
+Same ownership rule as trips: every conversation endpoint needs a bearer token, and
+`403` if the conversation is not yours.
+
+```bash
+cd backend
+python test_conversations.py   # 37 checks, no AWS account needed
+```
+
 ## API Endpoints
 
 Every `/api/v1/trips` endpoint requires an `Authorization: Bearer <token>` header.
@@ -384,6 +475,11 @@ Every `/api/v1/trips` endpoint requires an `Authorization: Bearer <token>` heade
 | POST   | `/api/v1/trips/{id}/generate`    | Generate an AI itinerary for your trip; `403` if not yours    |
 | POST   | `/api/v1/ask`                    | Answer from the knowledge base (`mode: rag`) or without it (`base`) |
 | GET    | `/api/v1/kb/search?q=`           | Retrieval only, no model call                                   |
+| POST   | `/api/v1/conversations`          | Start a new, empty conversation                                 |
+| GET    | `/api/v1/conversations`          | List **your own** conversations, most recently active first     |
+| GET    | `/api/v1/conversations/{id}`     | One conversation with its messages; `403` if not yours          |
+| POST   | `/api/v1/conversations/{id}/messages` | Send a message, get a reply grounded in the full history    |
+| DELETE | `/api/v1/conversations/{id}`     | Delete your conversation; `403` if not yours                    |
 | GET    | `/api/v1/recommendations`        | List of recommended places                                      |
 | GET    | `/api/v1/transportations`        | List of available transportation options                        |
 
@@ -454,3 +550,4 @@ Evening:
 - [x] Trip history dashboard with paginated trip cards
 - [x] Accounts, login and per-user trip ownership
 - [x] Knowledge base with RAG answers, measured against the base model
+- [x] Conversational memory: multi-turn chat backed by stored message history

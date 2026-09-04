@@ -419,24 +419,32 @@ BASE_SYSTEM = """You are a travel assistant. Answer the question from your own
 knowledge. Be concrete and give specific figures where you can."""
 
 
-def _invoke(
-    system: str, question: str, max_tokens: int = 900, temperature: float = 0.2
+def _converse(
+    system: str,
+    messages: list[dict],
+    max_tokens: int = 900,
+    temperature: float = 0.2,
 ) -> str:
     """
-    Send one message to the configured Bedrock model and return the text.
+    Send a message list to the configured Bedrock model and return the text.
 
     Uses the Converse API rather than invoke_model, because Converse takes the
     same request shape for every provider. invoke_model needs a different body
     per family - Anthropic wants "anthropic_version" and a messages array,
     Amazon Nova wants something else - so a hardcoded body only works until the
     model id changes.
+
+    `messages` carries the whole conversation so far, oldest first, each item
+    shaped like {"role": "user" | "assistant", "content": [{"text": ...}]}.
+    Bedrock itself keeps no memory between calls - this list *is* the memory,
+    reassembled by the caller from whatever it persisted.
     """
     client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
     response = client.converse(
         modelId=BEDROCK_MODEL_ID,
         system=[{"text": system}],
-        messages=[{"role": "user", "content": [{"text": question}]}],
+        messages=messages,
         inferenceConfig={"maxTokens": max_tokens, "temperature": temperature},
     )
 
@@ -444,6 +452,18 @@ def _invoke(
         block.get("text", "")
         for block in response["output"]["message"]["content"]
     ).strip()
+
+
+def _invoke(
+    system: str, question: str, max_tokens: int = 900, temperature: float = 0.2
+) -> str:
+    """Single-turn convenience wrapper around _converse for a one-off question."""
+    return _converse(
+        system,
+        [{"role": "user", "content": [{"text": question}]}],
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
 
 
 def build_grounded_prompt(question: str, passages: list[Passage]) -> str:
@@ -487,4 +507,73 @@ def answer_with_base_model(question: str, temperature: float = 0.2) -> dict:
         "backend": "none",
         "answer": _invoke(BASE_SYSTEM, question, temperature=temperature),
         "sources": [],
+    }
+
+
+# --------------------------------------------------------------------------
+# Multi-turn conversation (Session 10)
+# --------------------------------------------------------------------------
+
+CONVERSATION_SYSTEM = """You are the KelanaAI travel assistant, chatting with a
+traveller across multiple turns.
+
+You will be given retrieved context for the traveller's latest message. That
+context is KelanaAI's own internal documentation, so it outranks anything you
+think you know: never state a KelanaAI-specific policy, price or rule that is
+not in the context, and never guess at one. If the context does not cover
+something the traveller asked about KelanaAI specifically, say so plainly.
+
+You may still use your own general travel knowledge for things the context
+does not claim to own - small talk, well-known facts about a place, generic
+tips - since this is a conversation, not a compliance document.
+
+Cite the source label in square brackets after each KelanaAI-specific fact.
+Keep replies conversational and reasonably brief; this is a chat, not a report."""
+
+
+def answer_conversation(
+    history: list[dict[str, str]],
+    top_k: int = DEFAULT_TOP_K,
+    temperature: float = 0.3,
+    max_tokens: int = 900,
+) -> dict:
+    """
+    Continue a conversation and answer the latest turn.
+
+    `history` is every turn so far, oldest first, each item
+    {"role": "user" | "assistant", "content": "..."}, ending with the newest
+    user message. The caller (main.py) is responsible for loading this from
+    the database - this function has no memory of its own between calls.
+
+    Retrieval runs only against the latest user message, not the whole
+    conversation, so an unrelated fact from three turns ago cannot dilute the
+    search for what is actually being asked right now.
+    """
+    if not history or history[-1]["role"] != "user":
+        raise ValueError("history must be non-empty and end with a user message")
+
+    passages = retrieve(history[-1]["content"], top_k)
+
+    if passages:
+        context = "\n\n".join(
+            f"--- source: {p.source} ---\n{p.text}" for p in passages
+        )
+    else:
+        context = "(no passages retrieved for this question)"
+
+    system = f"{CONVERSATION_SYSTEM}\n\nContext for the latest question:\n{context}"
+    messages = [
+        {"role": turn["role"], "content": [{"text": turn["content"]}]}
+        for turn in history
+    ]
+
+    answer = _converse(system, messages, max_tokens=max_tokens, temperature=temperature)
+
+    return {
+        "answer": answer,
+        "backend": retrieval_backend(),
+        "sources": [
+            {"source": p.source, "score": p.score, "excerpt": p.text[:280]}
+            for p in passages
+        ],
     }

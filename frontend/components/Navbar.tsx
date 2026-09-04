@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 const signedInLinks = [
   { href: "/plan", label: "Plan a trip" },
   { href: "/dashboard", label: "Trip history" },
+  { href: "/chat", label: "Chat" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -51,7 +52,9 @@ export default function Navbar() {
 
         <ul className="hidden items-center gap-8 md:flex">
           {links.map((link) => {
-            const isActive = link.href === pathname;
+            // startsWith too, so "Chat" stays highlighted on /chat/[id].
+            const isActive =
+              pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <li key={link.href}>
                 <Link
